@@ -1,19 +1,16 @@
-# ATLEAST GIVE CREDITS IF YOU STEALING :(((((((((((((((((((((((((((((((((((((
-# ELSE NO FURTHER PUBLIC THUMBNAIL UPDATES
-
 import os
 import re
 import random
-
 import aiofiles
 import aiohttp
+
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 from py_yt import VideosSearch
 
 from config import YOUTUBE_IMG_URL
 
 
-def truncate(text, max_len=30):
+def truncate(text, max_len=28):
     words = text.split()
     lines = ["", ""]
     i = 0
@@ -22,105 +19,128 @@ def truncate(text, max_len=30):
             lines[i] += (" " if lines[i] else "") + word
         elif i == 0:
             i = 1
-
     return lines
 
-def random_color():
-    return tuple(random.randint(0, 255) for _ in range(3))
 
-def circular_crop(img, size, border, color, scale=1.5):
+def circular_crop(img, size, border, color):
     inner = size - 2 * border
-    crop = int(size * scale)
-    w, h = img.size
-    img = img.crop((w//2-crop//2, h//2-crop//2, w//2+crop//2, h//2+crop//2))
     img = img.resize((inner, inner), Image.LANCZOS)
 
-    out = Image.new("RGBA", (size, size), color)
     mask = Image.new("L", (inner, inner), 0)
     ImageDraw.Draw(mask).ellipse((0, 0, inner, inner), 255)
-    out.paste(img, (border, border), mask)
 
-    outer = Image.new("L", (size, size), 0)
-    ImageDraw.Draw(outer).ellipse((0, 0, size, size), 255)
-    out.putalpha(outer)
-    return out
+    output = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    bg = Image.new("RGBA", (size, size), color)
+    output.paste(bg, (0, 0))
+
+    output.paste(img, (border, border), mask)
+    return output
+
 
 def draw_text(draw, pos, text, font, fill):
     x, y = pos
-    draw.text((x+2, y+2), text, font=font, fill="black")
+    draw.text((x + 2, y + 2), text, font=font, fill="black")
     draw.text(pos, text, font=font, fill=fill)
-
-def gen_gradient(size, start, end):
-    base = Image.new("RGBA", size, start)
-    top = Image.new("RGBA", size, end)
-    mask = Image.linear_gradient("L").resize(size)
-    base.paste(top, (0, 0), mask)
-    return base
 
 
 async def gen_thumb(videoid: str, thumb_size=(1280, 720)):
+    os.makedirs("cache", exist_ok=True)
     path = f"cache/{videoid}.png"
+
     if os.path.isfile(path):
         return path
+
     try:
         url = f"https://www.youtube.com/watch?v={videoid}"
-        results = VideosSearch(url, limit=1, with_live=False)
+        results = VideosSearch(url, limit=1)
         data = (await results.next())["result"][0]
-        title = re.sub(r"\W+", " ", data.get("title", "Unsupported Title")).title()
+
+        title = re.sub(r"\W+", " ", data.get("title", "Unsupported")).title()
         duration = data.get("duration") or "00:00"
         views = data.get("viewCount", {}).get("short", "Unknown Views")
         channel = data.get("channel", {}).get("name", "Unknown Channel")
         thumb_url = data["thumbnails"][0]["url"].split("?")[0]
-        
+
         async with aiohttp.ClientSession() as session:
             async with session.get(thumb_url) as resp:
                 content = await resp.read()
 
-        temp_path = f"cache/thumb_{videoid}.png"
+        temp_path = f"cache/temp_{videoid}.jpg"
         async with aiofiles.open(temp_path, "wb") as f:
             await f.write(content)
 
-        base_img = Image.open(temp_path).convert("RGBA")
-        base_img.thumbnail(thumb_size, Image.Resampling.LANCZOS)
+        base = Image.open(temp_path).convert("RGBA")
+        base = base.resize(thumb_size, Image.LANCZOS)
 
-        bg = base_img.filter(ImageFilter.BoxBlur(20))
-        bg = ImageEnhance.Brightness(bg).enhance(0.6)
-        grad = gen_gradient(thumb_size, random_color(), random_color())
-        bg = Image.blend(bg, grad, 0.2)
+        # 🎬 Cinematic Background
+        bg = base.filter(ImageFilter.GaussianBlur(40))
+        bg = ImageEnhance.Brightness(bg).enhance(0.4)
+
+        overlay = Image.new("RGBA", thumb_size, (0, 0, 0, 160))
+        bg = Image.alpha_composite(bg, overlay)
 
         draw = ImageDraw.Draw(bg)
-        font_small = ImageFont.truetype("AviaxMusic/assets/font2.ttf", 30)
-        font_title = ImageFont.truetype("AviaxMusic/assets/font3.ttf", 45)
 
-        circle = circular_crop(base_img, 400, 20, random_color())
-        circle.show()
+        font_title = ImageFont.truetype("AviaxMusic/assets/font3.ttf", 55)
+        font_small = ImageFont.truetype("AviaxMusic/assets/font2.ttf", 32)
+        font_badge = ImageFont.truetype("AviaxMusic/assets/font2.ttf", 28)
+
+        # 💿 Album Circle
+        cover = Image.open(temp_path).convert("RGBA")
+        circle = circular_crop(cover, 420, 15, (255, 255, 255))
+
+        glow = circle.filter(ImageFilter.GaussianBlur(30))
+        bg.paste(glow, (100, 140), glow)
         bg.paste(circle, (120, 160), circle)
 
-        x, y = 565, 380
+        # 🏷 NOW PLAYING Badge
+        draw.rounded_rectangle(
+            (90, 70, 320, 120),
+            radius=18,
+            fill=(255, 0, 90)
+        )
+        draw_text(draw, (120, 82), "NOW PLAYING", font_badge, "white")
+
+        # 📝 Text Layout
+        x = 620
         t1, t2 = truncate(title)
 
-        draw_text(draw, (x, 180), t1, font_title, "white")
-        draw_text(draw, (x, 230), t2, font_title, "white")
-        draw_text(draw, (x, 320), f"{channel} | {views[:23]}", font_small, "white")
+        draw_text(draw, (x, 200), t1, font_title, "white")
+        draw_text(draw, (x, 265), t2, font_title, "white")
 
-        pct = random.uniform(0.15, 0.85)
-        color_len = int(580 * pct)
-        color = random_color()
+        draw_text(draw, (x, 340), f"🎵 {channel}", font_small, "#cccccc")
+        draw_text(draw, (x, 380), f"👁 {views}", font_small, "#aaaaaa")
 
-        draw.line((x, y, x + color_len, y), fill=color, width=9)
-        draw.line((x + color_len, y, x + 580, y), fill="white", width=8)
-        draw.ellipse((x + color_len - 10, y - 10, x + color_len + 10, y + 10), fill=color)
+        # 🎧 Progress Bar
+        bar_x = x
+        bar_y = 460
+        bar_width = 600
+        bar_height = 16
 
-        draw_text(draw, (x, 400), "00:00", font_small, "white")
-        draw_text(draw, (1080, 400), duration, font_small, "white")
+        progress = random.uniform(0.2, 0.8)
+        fill_width = int(bar_width * progress)
 
-        icons = Image.open("AviaxMusic/assets/play_icons.png").convert("RGBA")
-        bg.paste(icons, (x, 450), icons)
+        draw.rounded_rectangle(
+            (bar_x, bar_y, bar_x + bar_width, bar_y + bar_height),
+            radius=10,
+            fill=(70, 70, 70)
+        )
+
+        draw.rounded_rectangle(
+            (bar_x, bar_y, bar_x + fill_width, bar_y + bar_height),
+            radius=10,
+            fill=(255, 0, 90)
+        )
+
+        # ⏱ Time
+        draw_text(draw, (bar_x, bar_y + 35), "00:00", font_small, "white")
+        draw_text(draw, (bar_x + bar_width - 100, bar_y + 35), duration, font_small, "white")
+
         bg.save(path)
-
         os.remove(temp_path)
+
         return path
 
-    except Exception as ex:
-        print(ex)
+    except Exception as e:
+        print(e)
         return YOUTUBE_IMG_URL
