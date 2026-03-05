@@ -10,19 +10,35 @@ from py_yt import VideosSearch
 from config import YOUTUBE_IMG_URL
 
 
-def truncate(text, max_len=30):
+def wrap_text(text, font, max_width, max_lines=3):
     words = text.split()
-    lines = ["", ""]
-    i = 0
+    lines = []
+    current = ""
+
     for word in words:
-        if len(lines[i]) + len(word) + 1 <= max_len:
-            lines[i] += (" " if lines[i] else "") + word
-        elif i == 0:
-            i = 1
-    return lines
+        test = current + (" " if current else "") + word
+        w = font.getbbox(test)[2]
+        if w <= max_width:
+            current = test
+        else:
+            lines.append(current)
+            current = word
+            if len(lines) == max_lines - 1:
+                break
+
+    if current:
+        lines.append(current)
+
+    return lines[:max_lines]
 
 
 def circular_crop(img, size, border):
+    w, h = img.size
+    min_dim = min(w, h)
+    left = (w - min_dim) // 2
+    top = (h - min_dim) // 2
+    img = img.crop((left, top, left + min_dim, top + min_dim))
+
     inner = size - 2 * border
     img = img.resize((inner, inner), Image.LANCZOS)
 
@@ -40,11 +56,10 @@ def draw_text(draw, pos, text, font, fill):
     draw.text(pos, text, font=font, fill=fill)
 
 
-def create_glass_panel(base, box, radius=30):
+def create_glass_panel(base, box, radius=35):
     x1, y1, x2, y2 = box
 
     panel = base.crop(box).filter(ImageFilter.GaussianBlur(25))
-
     overlay = Image.new("RGBA", (x2 - x1, y2 - y1), (255, 255, 255, 60))
     panel = Image.alpha_composite(panel.convert("RGBA"), overlay)
 
@@ -57,8 +72,8 @@ def create_glass_panel(base, box, radius=30):
 
     base.paste(panel, (x1, y1), mask)
 
-    border_draw = ImageDraw.Draw(base)
-    border_draw.rounded_rectangle(
+    border = ImageDraw.Draw(base)
+    border.rounded_rectangle(
         box,
         radius=radius,
         outline=(255, 255, 255, 120),
@@ -95,11 +110,11 @@ async def gen_thumb(videoid: str, thumb_size=(1280, 720)):
         base = Image.open(temp_path).convert("RGBA")
         base = base.resize(thumb_size, Image.LANCZOS)
 
-        # 🎬 Background Blur
+        # Cinematic Background
         bg = base.filter(ImageFilter.GaussianBlur(40))
         bg = ImageEnhance.Brightness(bg).enhance(0.5)
 
-        dark_overlay = Image.new("RGBA", thumb_size, (0, 0, 0, 120))
+        dark_overlay = Image.new("RGBA", thumb_size, (0, 0, 0, 130))
         bg = Image.alpha_composite(bg, dark_overlay)
 
         draw = ImageDraw.Draw(bg)
@@ -107,31 +122,35 @@ async def gen_thumb(videoid: str, thumb_size=(1280, 720)):
         font_title = ImageFont.truetype("AviaxMusic/assets/font3.ttf", 55)
         font_small = ImageFont.truetype("AviaxMusic/assets/font2.ttf", 32)
 
-        # 💿 Album Cover Left
+        # Album Circle
         cover = Image.open(temp_path).convert("RGBA")
-        circle = circular_crop(cover, 420, 10)
+        circle = circular_crop(cover, 420, 12)
 
-        glow = circle.filter(ImageFilter.GaussianBlur(25))
+        glow = circle.filter(ImageFilter.GaussianBlur(30))
         bg.paste(glow, (110, 150), glow)
         bg.paste(circle, (130, 170), circle)
 
-        # 💎 Glass Panel Right
+        # Glass Panel
         panel_box = (550, 150, 1180, 570)
         create_glass_panel(bg, panel_box)
 
-        # 📝 Text inside panel
+        # Text Inside Panel
         x = 600
-        t1, t2 = truncate(title)
+        panel_width = 1180 - 550 - 100
 
-        draw_text(draw, (x, 220), t1, font_title, "white")
-        draw_text(draw, (x, 285), t2, font_title, "white")
+        wrapped_title = wrap_text(title, font_title, panel_width, 3)
 
-        draw_text(draw, (x, 360), f"{channel}", font_small, "#dddddd")
-        draw_text(draw, (x, 400), f"{views}", font_small, "#bbbbbb")
+        start_y = 220
+        for i, line in enumerate(wrapped_title):
+            draw_text(draw, (x, start_y + (i * 60)), line, font_title, "white")
 
-        # 🎧 Thin Premium Progress Line
+        meta_y = start_y + (len(wrapped_title) * 60) + 20
+        draw_text(draw, (x, meta_y), channel, font_small, "#dddddd")
+        draw_text(draw, (x, meta_y + 40), views, font_small, "#bbbbbb")
+
+        # Progress Bar
         bar_x = x
-        bar_y = 470
+        bar_y = meta_y + 100
         bar_width = 520
 
         progress = random.uniform(0.2, 0.8)
