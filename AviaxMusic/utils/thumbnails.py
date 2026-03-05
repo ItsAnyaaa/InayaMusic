@@ -7,7 +7,10 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 from py_yt import VideosSearch
 from config import YOUTUBE_IMG_URL
 
-# --- Helper functions (Same as yours but modified layout) ---
+# Function to pick dominant color (Aesthetic ke liye)
+def get_dominant_color(img):
+    img = img.copy().resize((1, 1), resample=Image.BICUBIC)
+    return img.getpixel((0, 0))
 
 async def gen_thumb(videoid: str, thumb_size=(1280, 720)):
     os.makedirs("cache", exist_ok=True)
@@ -31,62 +34,68 @@ async def gen_thumb(videoid: str, thumb_size=(1280, 720)):
         async with aiofiles.open(temp_path, "wb") as f:
             await f.write(content)
 
-        # 1. Background Setup (Blurred Image)
+        # 1. Background Setup
         base = Image.open(temp_path).convert("RGBA")
         base = base.resize(thumb_size, Image.LANCZOS)
-        bg = base.filter(ImageFilter.GaussianBlur(30))
-        bg = ImageEnhance.Brightness(bg).enhance(0.7)
-
-        # 2. Main Card Setup (The Spotify-like Panel)
-        draw = ImageDraw.Draw(bg)
-        card_x1, card_y1, card_x2, card_y2 = 100, 100, 1180, 620
         
-        # Create Semi-Transparent Glass Effect
+        # Dominant Color for Tint
+        dom_color = get_dominant_color(base)
+        
+        # Blurred Background
+        bg = base.filter(ImageFilter.GaussianBlur(50))
+        bg = ImageEnhance.Brightness(bg).enhance(0.6)
+
+        # 2. Glass Panel with Tint (Image se match karta hua color)
+        # Hum card ko background se milta-julta color denge
+        card_color = (dom_color[0], dom_color[1], dom_color[2], 100) # Semi-transparent tint
+        
         overlay = Image.new("RGBA", thumb_size, (0, 0, 0, 0))
         overlay_draw = ImageDraw.Draw(overlay)
-        overlay_draw.rounded_rectangle((card_x1, card_y1, card_x2, card_y2), radius=40, fill=(255, 255, 255, 40))
+        card_box = (100, 100, 1180, 620)
+        overlay_draw.rounded_rectangle(card_box, radius=50, fill=card_color)
+        
+        # Border for glass effect
+        overlay_draw.rounded_rectangle(card_box, radius=50, outline=(255, 255, 255, 30), width=2)
+        
         bg = Image.alpha_composite(bg, overlay)
-        draw = ImageDraw.Draw(bg) # Redefine draw for new bg
+        draw = ImageDraw.Draw(bg)
 
-        # 3. Fonts
-        # Note: Make sure these paths are correct or use default fonts
-        font_title = ImageFont.truetype("AviaxMusic/assets/font3.ttf", 60)
-        font_artist = ImageFont.truetype("AviaxMusic/assets/font2.ttf", 40)
-        font_time = ImageFont.truetype("AviaxMusic/assets/font2.ttf", 25)
+        # 3. Text Styling
+        font_title = ImageFont.truetype("AviaxMusic/assets/font3.ttf", 65)
+        font_artist = ImageFont.truetype("AviaxMusic/assets/font2.ttf", 45)
+        font_small = ImageFont.truetype("AviaxMusic/assets/font2.ttf", 28)
 
-        # 4. Text (Left Aligned)
-        draw.text((150, 180), "Spotify", font=font_artist, fill=(255, 255, 255, 200))
-        
-        # Title (Truncate if too long)
-        display_title = title[:30] + "..." if len(title) > 30 else title
-        draw.text((150, 240), display_title, font=font_title, fill="white")
-        draw.text((150, 320), channel, font=font_artist, fill=(255, 255, 255, 180))
+        # Title & Artist (Left Aligned)
+        display_title = title[:25] + "..." if len(title) > 25 else title
+        draw.text((160, 220), "Spotify", font=font_small, fill=(255, 255, 255, 180))
+        draw.text((160, 270), display_title, font=font_title, fill="white")
+        draw.text((160, 360), channel, font=font_artist, fill=(255, 255, 255, 200))
 
-        # 5. Icons/Controls (Draw simple shapes for Play/Pause)
-        cx, cy = 640, 480 # Center of controls
-        
-        # Play/Pause Circle (Center)
-        draw.rounded_rectangle((cx-40, cy-50, cx+40, cy+50), radius=15, fill="white") # Simplified Pause
-        draw.rounded_rectangle((cx-15, cy-40, cx-5, cy+40), radius=2, fill="black") # Pause lines
-        draw.rounded_rectangle((cx+5, cy-40, cx+15, cy+40), radius=2, fill="black")
+        # 4. Improved Music Controls (Brownish/Match color)
+        cx, cy = 640, 480
+        accent_color = (dom_color[0], dom_color[1], dom_color[2], 255) # Deep color from image
+
+        # Play/Pause Button (Rounded Box)
+        draw.rounded_rectangle((cx-45, cy-55, cx+45, cy+55), radius=25, fill=accent_color)
+        # Pause Lines
+        draw.rectangle((cx-18, cy-35, cx-6, cy+35), fill="white")
+        draw.rectangle((cx+6, cy-35, cx+18, cy+35), fill="white")
 
         # Skip Buttons (Triangles)
-        draw.polygon([(cx+120, cy-25), (cx+120, cy+25), (cx+150, cy)], fill="white") # Next
-        draw.polygon([(cx-120, cy-25), (cx-120, cy+25), (cx-150, cy)], fill="white") # Prev
+        draw.polygon([(cx+140, cy-30), (cx+140, cy+30), (cx+180, cy)], fill=accent_color) # Next
+        draw.polygon([(cx-140, cy-30), (cx-140, cy+30), (cx-180, cy)], fill=accent_color) # Prev
 
-        # 6. Progress Bar (Bottom of Card)
-        bar_x1, bar_y = 150, 560
-        bar_x2 = 1130
-        draw.line((bar_x1, bar_y, bar_x2, bar_y), fill=(255, 255, 255, 80), width=6) # Background bar
+        # 5. Progress Bar
+        bar_x1, bar_y, bar_x2 = 160, 560, 1120
+        draw.line((bar_x1, bar_y, bar_x2, bar_y), fill=(accent_color[0], accent_color[1], accent_color[2], 100), width=8)
         
-        # Current Progress (Random for aesthetic)
-        progress_end = bar_x1 + (bar_x2 - bar_x1) * 0.4 
-        draw.line((bar_x1, bar_y, progress_end, bar_y), fill="white", width=6)
-        draw.ellipse((progress_end-8, bar_y-8, progress_end+8, bar_y+8), fill="white") # The Dot
+        progress_end = bar_x1 + (bar_x2 - bar_x1) * 0.45
+        draw.line((bar_x1, bar_y, progress_end, bar_y), fill=accent_color, width=8)
+        draw.ellipse((progress_end-12, bar_y-12, progress_end+12, bar_y+12), fill=accent_color)
 
-        # Time Stamps
-        draw.text((150, 580), "01:24", font=font_time, fill="white")
-        draw.text((bar_x2-70, 580), duration, font=font_time, fill="white")
+        # Time
+        draw.text((160, 585), "01:24", font=font_small, fill="white")
+        draw.text((bar_x2-80, 585), duration, font=font_small, fill="white")
 
         bg = bg.convert("RGB")
         bg.save(path)
