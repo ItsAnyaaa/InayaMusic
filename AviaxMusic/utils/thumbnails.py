@@ -1,108 +1,195 @@
 import os
 import re
-import random
+
 import aiofiles
 import aiohttp
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 from py_yt import VideosSearch
+
 from config import YOUTUBE_IMG_URL
 
-# Function to pick dominant color (Aesthetic ke liye)
-def get_dominant_color(img):
-    img = img.copy().resize((1, 1), resample=Image.BICUBIC)
-    return img.getpixel((0, 0))
 
-async def gen_thumb(videoid: str, thumb_size=(1280, 720)):
-    os.makedirs("cache", exist_ok=True)
-    path = f"cache/{videoid}.png"
+def changeImageSize(maxWidth, maxHeight, image):
+    widthRatio = maxWidth / image.size[0]
+    heightRatio = maxHeight / image.size[1]
+    newWidth = int(widthRatio * image.size[0])
+    newHeight = int(heightRatio * image.size[1])
+    newImage = image.resize((newWidth, newHeight))
+    return newImage
 
+
+async def get_thumb(videoid):
+    if os.path.isfile(f"cache/{videoid}.png"):
+        return f"cache/{videoid}.png"
+
+    url = f"https://www.youtube.com/watch?v={videoid}"
     try:
-        url = f"https://www.youtube.com/watch?v={videoid}"
         results = VideosSearch(url, limit=1)
-        data = (await results.next())["result"][0]
-
-        title = data.get("title", "Unsupported")
-        duration = data.get("duration") or "05:00"
-        channel = data.get("channel", {}).get("name", "Unknown Artist")
-        thumb_url = data["thumbnails"][0]["url"].split("?")[0]
+        for result in (await results.next())["result"]:
+            try:
+                title = result["title"]
+                title = re.sub("\W+", " ", title)
+                title = title.title()
+            except:
+                title = "Unsupported Title"
+            try:
+                duration = result["duration"]
+            except:
+                duration = "Unknown"
+            thumbnail = result["thumbnails"][0]["url"].split("?")[0]
+            try:
+                views = result["viewCount"]["short"]
+            except:
+                views = "Unknown Views"
 
         async with aiohttp.ClientSession() as session:
-            async with session.get(thumb_url) as resp:
-                content = await resp.read()
+            async with session.get(thumbnail) as resp:
+                if resp.status == 200:
+                    f = await aiofiles.open(f"cache/thumb{videoid}.png", mode="wb")
+                    await f.write(await resp.read())
+                    await f.close()
 
-        temp_path = f"cache/temp_{videoid}.jpg"
-        async with aiofiles.open(temp_path, "wb") as f:
-            await f.write(content)
+        youtube = Image.open(f"cache/thumb{videoid}.png")
 
-        # 1. Background Setup
-        base = Image.open(temp_path).convert("RGBA")
-        base = base.resize(thumb_size, Image.LANCZOS)
-        
-        # Dominant Color for Tint
-        dom_color = get_dominant_color(base)
-        
-        # Blurred Background
-        bg = base.filter(ImageFilter.GaussianBlur(50))
-        bg = ImageEnhance.Brightness(bg).enhance(0.6)
+        GLOW_COLOR = "#ff0099"  # Neon Pink
+        BORDER_COLOR = "#FF1493"  # Deep Pink
+        image1 = changeImageSize(1280, 720, youtube)
+        image1 = image1.filter(ImageFilter.GaussianBlur(20))
+        image1 = ImageEnhance.Brightness(image1).enhance(0.4)
 
-        # 2. Glass Panel with Tint (Image se match karta hua color)
-        # Hum card ko background se milta-julta color denge
-        card_color = (dom_color[0], dom_color[1], dom_color[2], 100) # Semi-transparent tint
-        
-        overlay = Image.new("RGBA", thumb_size, (0, 0, 0, 0))
-        overlay_draw = ImageDraw.Draw(overlay)
-        card_box = (100, 100, 1180, 620)
-        overlay_draw.rounded_rectangle(card_box, radius=50, fill=card_color)
-        
-        # Border for glass effect
-        overlay_draw.rounded_rectangle(card_box, radius=50, outline=(255, 255, 255, 30), width=2)
-        
-        bg = Image.alpha_composite(bg, overlay)
-        draw = ImageDraw.Draw(bg)
+        thumb_width = 840
+        thumb_height = 460
 
-        # 3. Text Styling
-        font_title = ImageFont.truetype("AviaxMusic/assets/font3.ttf", 65)
-        font_artist = ImageFont.truetype("AviaxMusic/assets/font2.ttf", 45)
-        font_small = ImageFont.truetype("AviaxMusic/assets/font2.ttf", 28)
+        youtube_thumb = youtube.resize((thumb_width, thumb_height))
 
-        # Title & Artist (Left Aligned)
-        display_title = title[:25] + "..." if len(title) > 25 else title
-        draw.text((160, 220), "Spotify", font=font_small, fill=(255, 255, 255, 180))
-        draw.text((160, 270), display_title, font=font_title, fill="white")
-        draw.text((160, 360), channel, font=font_artist, fill=(255, 255, 255, 200))
+        mask = Image.new("L", (thumb_width, thumb_height), 0)
+        draw_mask = ImageDraw.Draw(mask)
+        draw_mask.rounded_rectangle(
+            [(0, 0), (thumb_width, thumb_height)], radius=20, fill=255
+        )
+        youtube_thumb.putalpha(mask)
+        center_x = 640
+        center_y_img = 300
+        thumb_x = center_x - (thumb_width // 2)
+        thumb_y = center_y_img - (thumb_height // 2)
+        thumb_x2 = thumb_x + thumb_width
+        thumb_y2 = thumb_y + thumb_height
 
-        # 4. Improved Music Controls (Brownish/Match color)
-        cx, cy = 640, 480
-        accent_color = (dom_color[0], dom_color[1], dom_color[2], 255) # Deep color from image
+        glow_layer = Image.new("RGBA", (1280, 720), (0, 0, 0, 0))
+        draw_glow = ImageDraw.Draw(glow_layer)
 
-        # Play/Pause Button (Rounded Box)
-        draw.rounded_rectangle((cx-45, cy-55, cx+45, cy+55), radius=25, fill=accent_color)
-        # Pause Lines
-        draw.rectangle((cx-18, cy-35, cx-6, cy+35), fill="white")
-        draw.rectangle((cx+6, cy-35, cx+18, cy+35), fill="white")
+        glow_expand = 20
+        draw_glow.rounded_rectangle(
+            [
+                (thumb_x - glow_expand, thumb_y - glow_expand),
+                (thumb_x2 + glow_expand, thumb_y2 + glow_expand),
+            ],
+            radius=30,
+            fill=GLOW_COLOR,
+        )
+        glow_layer = glow_layer.filter(ImageFilter.GaussianBlur(30))
+        image1.paste(glow_layer, (0, 0), glow_layer)
+        border_layer = Image.new("RGBA", (1280, 720), (0, 0, 0, 0))
+        draw_border = ImageDraw.Draw(border_layer)
 
-        # Skip Buttons (Triangles)
-        draw.polygon([(cx+140, cy-30), (cx+140, cy+30), (cx+180, cy)], fill=accent_color) # Next
-        draw.polygon([(cx-140, cy-30), (cx-140, cy+30), (cx-180, cy)], fill=accent_color) # Prev
+        border_expand = 5
+        draw_border.rounded_rectangle(
+            [
+                (thumb_x - border_expand, thumb_y - border_expand),
+                (thumb_x2 + border_expand, thumb_y2 + border_expand),
+            ],
+            radius=25,
+            fill=BORDER_COLOR,
+        )
+        image1.paste(border_layer, (0, 0), border_layer)
 
-        # 5. Progress Bar
-        bar_x1, bar_y, bar_x2 = 160, 560, 1120
-        draw.line((bar_x1, bar_y, bar_x2, bar_y), fill=(accent_color[0], accent_color[1], accent_color[2], 100), width=8)
-        
-        progress_end = bar_x1 + (bar_x2 - bar_x1) * 0.45
-        draw.line((bar_x1, bar_y, progress_end, bar_y), fill=accent_color, width=8)
-        draw.ellipse((progress_end-12, bar_y-12, progress_end+12, bar_y+12), fill=accent_color)
+        image1.paste(youtube_thumb, (thumb_x, thumb_y), youtube_thumb)
 
-        # Time
-        draw.text((160, 585), "01:24", font=font_small, fill="white")
-        draw.text((bar_x2-80, 585), duration, font=font_small, fill="white")
+        draw = ImageDraw.Draw(image1)
 
-        bg = bg.convert("RGB")
-        bg.save(path)
-        os.remove(temp_path)
-        return path
+        try:
+            font_title = ImageFont.truetype("IstkharMusic/assets/font.ttf", 45)
+            font_details = ImageFont.truetype("IstkharMusic/assets/font2.ttf", 30)
+            font_watermark = ImageFont.truetype("IstkharMusic/assets/font2.ttf", 25)
+        except:
+            font_title = ImageFont.truetype("arial.ttf", 45)
+            font_details = ImageFont.truetype("arial.ttf", 30)
+            font_watermark = ImageFont.truetype("arial.ttf", 25)
+
+        def get_text_width(text, font):
+            if hasattr(draw, "textlength"):
+                return draw.textlength(text, font=font)
+            else:
+                return draw.textsize(text, font=font)[0]
+
+        if len(title) > 45:
+            title = title[:45] + "..."
+
+        w_title = get_text_width(title, font_title)
+        text_y_pos = thumb_y2 + 50
+
+        draw.text(
+            ((1280 - w_title) / 2, text_y_pos),
+            text=title,
+            fill="white",
+            font=font_title,
+            stroke_width=1,
+            stroke_fill="black",
+        )
+
+        stats_text = f"YouTube : {views} | Time : {duration} | Player : @MusarratMusicBot"
+        w_stats = get_text_width(stats_text, font_details)
+        draw.text(
+            ((1280 - w_stats) / 2, text_y_pos + 70),
+            text=stats_text,
+            fill=BORDER_COLOR,
+            font=font_details,
+            stroke_width=1,
+            stroke_fill="black",
+        )
+
+        text_classy = "@AarumiBots"
+        w_classy = get_text_width(text_classy, font_watermark)
+
+        draw.text(
+            (1280 - w_classy - 30, 30),
+            text=text_classy,
+            fill="yellow",
+            font=font_watermark,
+            stroke_width=1,
+            stroke_fill="black",
+        )
+
+        draw.text(
+            (30, 680),
+            text="@NoMercyKarma",
+            fill="white",
+            font=font_watermark,
+            stroke_width=1,
+            stroke_fill="black",
+        )
+
+        try:
+            os.remove(f"cache/thumb{videoid}.png")
+        except:
+            pass
+
+        file_name = f"cache/{videoid}.png"
+        image1.save(file_name)
+        return file_name
 
     except Exception as e:
-        print(f"Error: {e}")
+        print(e)
         return YOUTUBE_IMG_URL
-        
+
+
+async def get_qthumb(vidid):
+    try:
+        url = f"https://www.youtube.com/watch?v={vidid}"
+        results = VideosSearch(url, limit=1)
+        for result in (await results.next())["result"]:
+            thumbnail = result["thumbnails"][0]["url"].split("?")[0]
+        return thumbnail
+    except Exception as e:
+        print(e)
+        return YOUTUBE_IMG_URL
