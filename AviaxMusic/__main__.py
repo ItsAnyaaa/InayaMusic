@@ -6,7 +6,7 @@ from pytgcalls.exceptions import NoActiveGroupCall
 
 import config
 from AviaxMusic import LOGGER, app, userbot
-from AviaxMusic.core.call import Call as Aviax
+from AviaxMusic.core.call import Aviax
 from AviaxMusic.misc import sudo
 from AviaxMusic.plugins import ALL_MODULES
 from AviaxMusic.utils.database import get_banned_users, get_gbanned
@@ -60,4 +60,3 @@ async def init():
 
 if __name__ == "__main__":
     asyncio.get_event_loop().run_until_complete(init())
-
