@@ -58,15 +58,15 @@ async def cleanup_all_messages(chat_id: int):
 
 class Call(PyTgCalls):
     def __init__(self):
-        self.userbot1 = Client(name="IstuAss1", api_id=config.API_ID, api_hash=config.API_HASH, session_string=str(config.STRING1))
+        self.userbot1 = Client(name="AviaxAss1", api_id=config.API_ID, api_hash=config.API_HASH, session_string=str(config.STRING1))
         self.one = PyTgCalls(self.userbot1, cache_duration=100)
-        self.userbot2 = Client(name="IstuAss2", api_id=config.API_ID, api_hash=config.API_HASH, session_string=str(config.STRING2))
+        self.userbot2 = Client(name="AviaxAss2", api_id=config.API_ID, api_hash=config.API_HASH, session_string=str(config.STRING2))
         self.two = PyTgCalls(self.userbot2, cache_duration=100)
-        self.userbot3 = Client(name="IstuAss3", api_id=config.API_ID, api_hash=config.API_HASH, session_string=str(config.STRING3))
+        self.userbot3 = Client(name="AviaxAss3", api_id=config.API_ID, api_hash=config.API_HASH, session_string=str(config.STRING3))
         self.three = PyTgCalls(self.userbot3, cache_duration=100)
-        self.userbot4 = Client(name="IstuAss4", api_id=config.API_ID, api_hash=config.API_HASH, session_string=str(config.STRING4))
+        self.userbot4 = Client(name="AviaxAss4", api_id=config.API_ID, api_hash=config.API_HASH, session_string=str(config.STRING4))
         self.four = PyTgCalls(self.userbot4, cache_duration=100)
-        self.userbot5 = Client(name="IstuAss5", api_id=config.API_ID, api_hash=config.API_HASH, session_string=str(config.STRING5))
+        self.userbot5 = Client(name="AviaxAss5", api_id=config.API_ID, api_hash=config.API_HASH, session_string=str(config.STRING5))
         self.five = PyTgCalls(self.userbot5, cache_duration=100)
 
     async def pause_stream(self, chat_id: int):
