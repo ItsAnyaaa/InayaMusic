@@ -21,7 +21,7 @@ from AviaxMusic.utils.decorators.language import languageCB
 from AviaxMusic.utils.formatters import seconds_to_min
 from AviaxMusic.utils.inline import close_markup, stream_markup, stream_markup_timer
 from AviaxMusic.utils.stream.autoclear import auto_clean
-from AviaxMusic.utils.thumbnails import gen_thumb
+from AviaxMusic.utils.thumbnails import get_thumb
 from config import (
     BANNED_USERS,
     SOUNCLOUD_IMG_URL,
@@ -395,4 +395,5 @@ async def markup_timer():
 
 
 asyncio.create_task(markup_timer())
+
 
