@@ -13,9 +13,9 @@ from pytgcalls.types import AudioQuality, VideoQuality
 from pytgcalls.types import MediaStream, ChatUpdate
 import config
 from config import autoclean
-from IstkharMusic import LOGGER, YouTube, app
-from IstkharMusic.misc import db
-from IstkharMusic.utils.database import (
+from AviaxMusic import LOGGER, YouTube, app
+from AviaxMusic.misc import db
+from AviaxMusic.utils.database import (
     add_active_chat,
     add_active_video_chat,
     get_lang,
@@ -27,10 +27,10 @@ from IstkharMusic.utils.database import (
     remove_active_video_chat,
     set_loop,
 )
-from IstkharMusic.utils.exceptions import AssistantErr
-from IstkharMusic.utils.formatters import check_duration, seconds_to_min, speed_converter
-from IstkharMusic.utils.inline.play import stream_markup
-from IstkharMusic.utils.thumbnails import get_thumb
+from AviaxMusic.utils.exceptions import AssistantErr
+from AviaxMusic.utils.formatters import check_duration, seconds_to_min, speed_converter
+from AviaxMusic.utils.inline.play import stream_markup
+from AviaxMusic.utils.thumbnails import get_thumb
 from strings import get_string
 
 autoend = {}
