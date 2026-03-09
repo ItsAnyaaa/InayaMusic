@@ -1,7 +1,7 @@
 import time
 
 from pyrogram import filters
-from pyrogram.enums import ChatType, ParseMode
+from pyrogram.enums import ChatType
 from pyrogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -25,8 +25,7 @@ from AviaxMusic.utils.database import (
 from AviaxMusic.utils import bot_sys_stats
 from AviaxMusic.utils.decorators.language import LanguageStart
 from AviaxMusic.utils.formatters import get_readable_time
-from AviaxMusic.utils.inline import help_pannel, private_panel, start_panel
-from AviaxMusic.utils.inline import Inline
+from AviaxMusic.utils.inline import help_pannel, private_panel, start_panel, Inline
 from config import BANNED_USERS
 from strings import get_string
 
@@ -50,15 +49,6 @@ async def start_pm(client, message: Message, _):
 
         if name.startswith("sud"):
             await sudoers_list(client=client, message=message, _=_)
-            if await is_on_off(2):
-                await app.send_message(
-                    chat_id=config.LOG_GROUP_ID,
-                    text=(
-                        f"{message.from_user.mention} checked <b>sudo list</b>.\n\n"
-                        f"<b>User ID:</b> <code>{message.from_user.id}</code>\n"
-                        f"<b>Username:</b> @{message.from_user.username}"
-                    ),
-                )
             return
 
         if name.startswith("inf"):
@@ -72,13 +62,11 @@ async def start_pm(client, message: Message, _):
                 duration = result["duration"]
                 views = result["viewCount"]["short"]
                 thumbnail = result["thumbnails"][0]["url"].split("?")[0]
-                channellink = result["channel"]["link"]
-                channel = result["channel"]["name"]
                 link = result["link"]
                 published = result["publishedTime"]
 
             searched_text = _["start_6"].format(
-                title, duration, views, published, channellink, channel, app.mention
+                title, duration, views, published, app.mention, app.mention
             )
 
             key = InlineKeyboardMarkup(
@@ -91,6 +79,7 @@ async def start_pm(client, message: Message, _):
             )
 
             await m.delete()
+
             await app.send_photo(
                 chat_id=message.chat.id,
                 photo=thumbnail,
@@ -99,7 +88,9 @@ async def start_pm(client, message: Message, _):
             )
             return
 
-    out = private_panel(self, _)
+    inline = Inline()
+    out = private_panel(inline, _)
+
     UP, CPU, RAM, DISK = await bot_sys_stats()
 
     await message.reply_photo(
@@ -115,21 +106,13 @@ async def start_pm(client, message: Message, _):
         reply_markup=InlineKeyboardMarkup(out),
     )
 
-    if await is_on_off(2):
-        await app.send_message(
-            chat_id=config.LOG_GROUP_ID,
-            text=(
-                f"{message.from_user.mention} started the bot.\n\n"
-                f"<b>User ID:</b> <code>{message.from_user.id}</code>\n"
-                f"<b>Username:</b> @{message.from_user.username}"
-            ),
-        )
-
 
 @app.on_message(filters.command(["start"]) & filters.group & ~BANNED_USERS)
 @LanguageStart
 async def start_gp(client, message: Message, _):
-    out = start_panel(_)
+    inline = Inline()
+    out = start_panel(inline, _)
+
     uptime = int(time.time() - _boot_)
 
     await message.reply_photo(
@@ -137,14 +120,18 @@ async def start_gp(client, message: Message, _):
         caption=_["start_1"].format(app.mention, get_readable_time(uptime)),
         reply_markup=InlineKeyboardMarkup(out),
     )
+
     await add_served_chat(message.chat.id)
+
 
 @app.on_callback_query(filters.regex("^back_to_start$"))
 async def back_to_start_cb(client, query: CallbackQuery):
     language = await get_lang(query.message.chat.id)
     _ = get_string(language)
 
-    out = private_panel(_)
+    inline = Inline()
+    out = private_panel(inline, _)
+
     UP, CPU, RAM, DISK = await bot_sys_stats()
 
     await query.message.edit_caption(
@@ -158,7 +145,9 @@ async def back_to_start_cb(client, query: CallbackQuery):
         ),
         reply_markup=InlineKeyboardMarkup(out),
     )
+
     await query.answer()
+
 
 @app.on_message(filters.new_chat_members, group=-1)
 async def welcome(client, message: Message):
@@ -187,7 +176,9 @@ async def welcome(client, message: Message):
                     )
                     return await app.leave_chat(message.chat.id)
 
-                out = start_panel(_)
+                inline = Inline()
+                out = start_panel(inline, _)
+
                 await message.reply_photo(
                     photo=config.START_IMG_URL,
                     caption=_["start_3"].format(
@@ -198,14 +189,9 @@ async def welcome(client, message: Message):
                     ),
                     reply_markup=InlineKeyboardMarkup(out),
                 )
+
                 await add_served_chat(message.chat.id)
                 await message.stop_propagation()
 
         except Exception as ex:
-
             print(ex)
-
-
-
-
-
