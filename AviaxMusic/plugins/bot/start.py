@@ -25,7 +25,7 @@ from AviaxMusic.utils.database import (
 from AviaxMusic.utils import bot_sys_stats
 from AviaxMusic.utils.decorators.language import LanguageStart
 from AviaxMusic.utils.formatters import get_readable_time
-from AviaxMusic.utils.inline import help_pannel, private_panel, start_panel, Inline
+from AviaxMusic.utils.inline import help_pannel, private_panel, start_panel
 from config import BANNED_USERS
 from strings import get_string
 
@@ -88,8 +88,7 @@ async def start_pm(client, message: Message, _):
             )
             return
 
-    inline = Inline()
-    out = private_panel(inline, _)
+    out = private_panel(app, _)
 
     UP, CPU, RAM, DISK = await bot_sys_stats()
 
@@ -110,8 +109,8 @@ async def start_pm(client, message: Message, _):
 @app.on_message(filters.command(["start"]) & filters.group & ~BANNED_USERS)
 @LanguageStart
 async def start_gp(client, message: Message, _):
-    inline = Inline()
-    out = start_panel(inline, _)
+
+    out = start_panel(app, _)
 
     uptime = int(time.time() - _boot_)
 
@@ -126,11 +125,11 @@ async def start_gp(client, message: Message, _):
 
 @app.on_callback_query(filters.regex("^back_to_start$"))
 async def back_to_start_cb(client, query: CallbackQuery):
+
     language = await get_lang(query.message.chat.id)
     _ = get_string(language)
 
-    inline = Inline()
-    out = private_panel(inline, _)
+    out = private_panel(app, _)
 
     UP, CPU, RAM, DISK = await bot_sys_stats()
 
@@ -161,6 +160,7 @@ async def welcome(client, message: Message):
                 return
 
             if member.id == app.id:
+
                 if message.chat.type != ChatType.SUPERGROUP:
                     await message.reply_text(_["start_4"])
                     return await app.leave_chat(message.chat.id)
@@ -176,8 +176,7 @@ async def welcome(client, message: Message):
                     )
                     return await app.leave_chat(message.chat.id)
 
-                inline = Inline()
-                out = start_panel(inline, _)
+                out = start_panel(app, _)
 
                 await message.reply_photo(
                     photo=config.START_IMG_URL,
