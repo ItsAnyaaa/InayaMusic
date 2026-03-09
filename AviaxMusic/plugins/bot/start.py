@@ -98,7 +98,7 @@ async def start_pm(client, message: Message, _):
             )
             return
 
-    out = private_panel(_)
+    out = private_panel(self, _)
     UP, CPU, RAM, DISK = await bot_sys_stats()
 
     await message.reply_photo(
@@ -203,6 +203,7 @@ async def welcome(client, message: Message):
         except Exception as ex:
 
             print(ex)
+
 
 
 
