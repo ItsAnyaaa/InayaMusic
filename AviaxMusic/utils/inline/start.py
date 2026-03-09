@@ -3,7 +3,7 @@ from AviaxMusic import app
 from pyrogram import enums
 
 
-def start_panel(self, _):
+def start_panel(_):
     buttons = [
         [
             self.ikb(
@@ -22,7 +22,7 @@ def start_panel(self, _):
     return buttons
 
 
-def private_panel(self, _):
+def private_panel(_):
     buttons = [
         [
             self.ikb(
@@ -59,3 +59,4 @@ def private_panel(self, _):
         ],
     ]
     return buttons
+
