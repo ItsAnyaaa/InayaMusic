@@ -1,5 +1,5 @@
 # Inaya Baby
-#### An adorable lavalink discord music bot that has a lot of features inside it.
+#### An Adorable Lavalink Telegram Music Bot That Has a Lot of Features Inside It.
 ![Inaya](https://i.imgur.com/P8Hd8LI_d.webp?maxwidth=640&shape=thumb&fidelity=medium)
-> © Azur Lane | First Project of [Weeb-Devs](https://www.github.com/Weeb-Devs)
+> © AarumiBots | First Project of [Aarumi-Music](https://www.github.com/ItsAarumi)
 
